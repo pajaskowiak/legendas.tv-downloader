@@ -48,7 +48,7 @@ def __extract_file(file_name, torrent_name, torrent_path):
     logging.info('Extracting subtitle %s', file_name)
 
     try:
-        rarfile.UNRAR_TOOL = '/usr/local/bin/unrar'
+        # rarfile.UNRAR_TOOL = '/usr/local/bin/unrar'
         rar = rarfile.RarFile(file_name)
 
         logging.debug(rar.namelist())
@@ -59,7 +59,7 @@ def __extract_file(file_name, torrent_name, torrent_path):
 
             logging.info('Extracted preferred subtitle %s', preferred_subtitle_name)
         else:
-            distributor_name = re.findall('.*\-(.*?)$', torrent_name)[0]
+            distributor_name = re.findall('.*\-(.*?)\..*?$', torrent_name)[0]
             quality = re.findall('\.(\d+)p\.', torrent_name)[0]
             proper = re.findall('(PROPER)?', torrent_name)[0]
 
@@ -67,9 +67,11 @@ def __extract_file(file_name, torrent_name, torrent_path):
 
             for sub_name in rar.namelist():
                 lower_sub_name = sub_name.lower()
-                if distributor_name.lower() in lower_sub_name and \
-                                quality.lower() in lower_sub_name and \
-                        (proper and proper.lower() in lower_sub_name):
+                if (distributor_name.lower() in lower_sub_name) and \
+                        (quality.lower() in lower_sub_name):
+                    if proper and not proper.lower in lower_sub_name:
+                        continue
+
                     rar.extract(sub_name, torrent_path)
 
                     logging.info('Extracted subtitle %s', sub_name)
@@ -126,4 +128,4 @@ if __name__ == '__main__':
 
     logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG if len(argv) == 1 else logging.INFO)
 
-    main(argv[1:])
+    main(*argv[1:])
