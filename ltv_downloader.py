@@ -48,7 +48,7 @@ def __extract_file(file_name, torrent_name, torrent_path):
     logging.info('Extracting subtitle %s', file_name)
 
     try:
-        # rarfile.UNRAR_TOOL = '/usr/local/bin/unrar'
+        rarfile.UNRAR_TOOL = '/usr/local/bin/unrar'
         rar = rarfile.RarFile(file_name)
 
         logging.debug(rar.namelist())
@@ -59,19 +59,13 @@ def __extract_file(file_name, torrent_name, torrent_path):
 
             logging.info('Extracted preferred subtitle %s', preferred_subtitle_name)
         else:
-            distributor_name = re.findall('.*\-(.*?)\..*?$', torrent_name)[0]
-            quality = re.findall('\.(\d+)p\.', torrent_name)[0]
-            proper = re.findall('(PROPER)?', torrent_name)[0]
+            torrent_info = __get_torrent_info(torrent_name)
 
-            logging.info('Trying to find subtitle for distributor %s with quality %s', distributor_name, quality)
+            logging.info('Trying to find subtitle for distributor %(distributor)s with quality %(quality)s', torrent_info )
 
             for sub_name in rar.namelist():
                 lower_sub_name = sub_name.lower()
-                if (distributor_name.lower() in lower_sub_name) and \
-                        (quality.lower() in lower_sub_name):
-                    if proper and not proper.lower in lower_sub_name:
-                        continue
-
+                if all([info.lower() in lower_sub_name for info in torrent_info.values()]):
                     rar.extract(sub_name, torrent_path)
 
                     logging.info('Extracted subtitle %s', sub_name)
@@ -79,6 +73,27 @@ def __extract_file(file_name, torrent_name, torrent_path):
 
     except Exception, e:
         logging.error('An unexpected error ocurred while extracting the subtitle (%s)' % e)
+
+
+def __get_torrent_info(torrent_name):
+    '''
+    Returns a dict containing the torrent name info
+    '''
+    r = re.compile(r"""(?P<title>.*)          # Title
+                    [\s.]
+                    (?P<episode>S\d{1,2}E\d{1,2})    # Episode
+                    [\s.a-zA-Z]*  # Space, period, or words like PROPER/Buried
+                    (?P<quality>\d{3,4}p)?   # Quality
+                    .*?-(?P<distributor>[a-zA-Z\-]+) # Distributor
+                """, re.VERBOSE)
+
+    result = [m.groupdict() for m in r.finditer(torrent_name)][0]
+    if 'PROPER' in torrent_name.upper():
+        result['extra'] = 'PROPER'
+    elif 'REPACK' in torrent_name.upper():
+        result['extra'] = 'REPACK'
+
+    return result
 
 
 def __download_subtitle(subtitle_id):
@@ -126,6 +141,18 @@ def __get_subtitle_ids(torrent_name):
 
 if __name__ == '__main__':
 
-    logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG if len(argv) == 1 else logging.INFO)
+    logging_level = logging.INFO
+    logfile = None
+    args = None
 
-    main(*argv[1:])
+    if len(argv) == 1:
+        logging_level = logging.DEBUG
+    elif len(argv) == 4:
+        args = argv[1:]
+    elif len(argv) == 5:
+        logfile = argv[1]
+        args = argv[2:]
+
+    logging.basicConfig(format='%(asctime)s - %(message)s', level=logging_level, filename=logfile)
+
+    main(*args)
